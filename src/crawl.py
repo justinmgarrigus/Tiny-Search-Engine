@@ -1,5 +1,6 @@
 import sys 
 import os 
+import io 
 import getopt 
 import re
 from bs4 import BeautifulSoup
@@ -7,6 +8,9 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 import socket 
 from colorama import Fore, Style
+import unittest 
+import unittest.mock 
+from parameterized import parameterized 
 
 
 class CircularQueue: 
@@ -72,7 +76,7 @@ class CircularQueue:
 		return result[:-2] + ']' # Remove last comma and space 
 		
 	
-	# Returns how many times poll() was invoked. 
+	# Returns how many times insert() was invoked. 
 	def __len__(self): 
 		return self._end_index 
 		
@@ -102,9 +106,10 @@ def process_website(queue, verbose, timeout, validate):
 	try: 
 		req = Request(url) 
 		html_page = urlopen(req, timeout=timeout) 
-	except (HTTPError, URLError, ValueError) as ex: 
+	except Exception as ex: 
 		if verbose: 
-			print(Fore.YELLOW + f'Failed ({type(ex)})' + Style.RESET_ALL) 
+			message = f'{type(ex)}, {ex.reason}' 
+			print(Fore.YELLOW + f'Failed ({message})' + Style.RESET_ALL) 
 		return 
 	soup = BeautifulSoup(html_page, 'html.parser') 
 	if verbose: print(Fore.CYAN + 'Obtained' + Style.RESET_ALL)
@@ -127,7 +132,7 @@ def process_website(queue, verbose, timeout, validate):
 				try: 
 					validate_request = Request(hyperlink) 
 					urlopen(validate_request, timeout=timeout)
-				except (HTTPError, URLError, ValueError, socket.timeout) as ex: 
+				except Exception as ex: 
 					if verbose: 
 						message =  f'{Fore.YELLOW}    Missing: {hyperlink}'
 						message += Style.RESET_ALL
@@ -139,8 +144,8 @@ def process_website(queue, verbose, timeout, validate):
 			
 			if queue.is_full(): 
 				return 
-		elif verbose and hyperlink is not None and \
-			    len(hyperlink) > 0 and hyperlink[0] != '#':
+		elif verbose: #and hyperlink is not None and \
+			    #len(hyperlink) > 0 and hyperlink[0] != '#':
 			# This is more of a debugging utility; "None" and "#" hyperlinks
 			# don't really provide much information
 			print(Fore.YELLOW + '    Invalid:', hyperlink, Style.RESET_ALL) 
@@ -186,17 +191,22 @@ def print_usage():
 		eprint(line, do_color=False) 
 
 
-if __name__ == '__main__':
-	if len(sys.argv) < 3: 
-		eprint(f'Error: expected at least 2 arguments, found {len(sys.argv)-1}\n')  
+def main(args):
+	# For ease of testing, this turns command-line arguments passed as a string
+	# into something more traditionally used with sys.argv
+	if isinstance(args, str): 
+		args = re.findall(r'("[^"]+"|[^\s"]+)', args) 
+	
+	if len(args) < 3: 
+		eprint(f'Error: expected at least 2 arguments, found {len(args)-1}\n')  
 		print_usage() 
 		sys.exit(1) 
 		
-	start = sys.argv[1] 
+	start = args[1] 
 	
 	# Parses limit (must be a positive integer) 
 	try:
-		limit = int(sys.argv[2]) 
+		limit = int(args[2]) 
 	except ValueError:
 		eprint('Error: limit must be an integer\n')
 		print_usage()
@@ -214,7 +224,7 @@ if __name__ == '__main__':
 	try: 
 		short = 'o:v:t:verb:val' 
 		long = ['verbose', 'validate']
-		iterator = getopt.gnu_getopt(sys.argv, short, long)[0]
+		iterator = getopt.gnu_getopt(args, short, long)[0]
 	except getopt.GetoptError as ex:
 		eprint(f'Error: unrecognized argument specified "{ex.opt}"\n')
 		print_usage() 
@@ -302,3 +312,92 @@ if __name__ == '__main__':
 	if output_file != sys.stdout:
 		output_file.close() 
 		if verbose: print(Fore.CYAN + 'done' + Style.RESET_ALL) 
+
+
+# Boilerplate tests that verify command-line arguments, where the key is the
+# name of the test and the value is the arguments supplied.
+cla_tests = {                                                                  \
+'no_args':                                                                     \
+	'crawl.py',                                                                \
+'limit_not_numeric':                                                           \
+	'crawl.py https://en.wikipedia.org/wiki/Computer_science limit',           \
+'limit_negative':                                                              \
+	'crawl.py https://en.wikipedia.org/wiki/Computer_science -10',             \
+'output_directory_unknown':                                                    \
+	'crawl.py https://en.wikipedia.org/wiki/Computer_science 10 ' +            \
+	'-o /some/nonexistant/directory/file.out',                                 \
+'timeout_not_numeric':                                                         \
+	'crawl.py https://en.wikipedia.org/wiki/Computer_science 10 -t timeout',   \
+'timeout_negative':                                                            \
+	'crawl.py https://en.wikipedia.org/wiki/Computer_science 10 -t -3.14',     \
+'unknown_option':                                                              \
+	'crawl.py https://en.wikipedia.org/wiki/Computer_science 10 -q',           \
+'verbose_misspelled':                                                          \
+	'crawl.py https://en.wikipedia.org/wiki/Computer_science 10 ' +            \
+	'--verboseoutput',                                                         \
+'validate_misspelled':                                                         \
+	'crawl.py https://en.wikipedia.org/wiki/Computer_science 10 --validation', \
+'multiple_output_specified':                                                   \
+	'crawl.py https://en.wikipedia.org/wiki/Computer_science 10 ' +            \
+	'-o file1.out -o file2.out',                                               \
+'multiple_timeout_specified':                                                  \
+	'crawl.py https://en.wikipedia.org/wiki/Computer_science 10 -t 5 -t 10'    \
+}
+
+
+# Collection of simple tests that should all return SystemExit signals (due to
+# sys.exit(1) calls) due to poor formatting of the command-line arguments. 
+class CommandLineArgumentTest(unittest.TestCase):
+	# Runs each test case in cla_tests
+	@parameterized.expand(cla_tests.items())
+	def test_cla(self, name, args): 
+		with self.assertRaises(SystemExit) as cm: 
+			main(args)
+
+
+# Collection of more complicated tests that have internal logic in them. 
+class UniqueTests(unittest.TestCase):
+	# Test that websites will correctly timeout and continue searching after
+	def test_timeout(self):
+		args =  'crawl.py https://crouton.net 10 -t 0.0001 --verbose'
+		with unittest.mock.patch('sys.stdout', new = io.StringIO()) as fake_out:
+			main(args)
+			self.assertRegex(fake_out.getvalue(), r'timed out')
+	
+	
+	# Tests that the program won't crash if it can't find enough websites to 
+	# completely meet the limit 
+	def test_not_enough_links(self): 
+		args =  'crawl.py https://crouton.net/ 10 --verbose'
+		with unittest.mock.patch('sys.stdout', new = io.StringIO()) as fake_out:
+			main(args)
+			# The output should not indicate that more than one link was added
+			# to the queue. 
+			self.assertNotRegex(fake_out.getvalue(), r'Added:')
+	
+	
+	# Tests that validation works. The given website contains links which do not
+	# lead anywhere, so they should not be added to the queue. 
+	def test_validate(self): 
+		args =  'crawl.py https://www.cs.rice.edu/CS/compilers/ 3 -t 10 ' 
+		args += '--verbose --validate' 
+		with unittest.mock.patch('sys.stdout', new = io.StringIO()) as fake_out:
+			main(args)
+			# The output should indicate that some of the links do not work
+			# after being pinged
+			self.assertRegex(fake_out.getvalue(), r'Missing:')
+			
+	
+	# Tests that the final output does not contain repeated entries
+	def test_repeat(self): 
+		args = 'crawl.py https://en.wikipedia.org/wiki/Computer_science 250 ' 
+		with unittest.mock.patch('sys.stdout', new = io.StringIO()) as fake_out: 
+			main(args)
+			# The output collection is stored as a line-separated list of 
+			# strings, so this ensures that the list contains only unique values
+			links = fake_out.getvalue().split('\n')
+			self.assertEqual(len(links), len(set(links))) 
+			
+
+if __name__ == '__main__':
+	main(sys.argv)
