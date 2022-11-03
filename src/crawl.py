@@ -11,6 +11,7 @@ from colorama import Fore, Style
 import unittest 
 import unittest.mock 
 from parameterized import parameterized 
+from gen import eprint 
 
 
 class CircularQueue: 
@@ -149,24 +150,6 @@ def process_website(queue, verbose, timeout, validate):
 			# This is more of a debugging utility; "None" and "#" hyperlinks
 			# don't really provide much information
 			print(Fore.YELLOW + '    Invalid:', hyperlink, Style.RESET_ALL) 
-
-
-# Prints to stderr instead of stdout. 
-#   <do_color>: whether or not to color the output red. Default is True
-def eprint(*args, **kwargs):
-	if 'do_color' in kwargs: 
-		do_color = kwargs['do_color'] 
-		kwargs.pop('do_color') 
-	else:
-		do_color = True 
-
-	if do_color:
-		print(Fore.RED, end='', flush=True) # Flushing required here 
-		
-	print(*args, file=sys.stderr, **kwargs)
-	
-	if do_color: 
-		print(Style.RESET_ALL, end='', flush=True) 
 
 
 # Prints the usage of this file to stderr 
@@ -359,7 +342,7 @@ class CommandLineArgumentTest(unittest.TestCase):
 class UniqueTests(unittest.TestCase):
 	# Test that websites will correctly timeout and continue searching after
 	def test_timeout(self):
-		args =  'crawl.py https://crouton.net 10 -t 0.0001 --verbose'
+		args = 'crawl.py https://crouton.net 10 -t 0.0001 --verbose'
 		with unittest.mock.patch('sys.stdout', new = io.StringIO()) as fake_out:
 			main(args)
 			self.assertRegex(fake_out.getvalue(), r'timed out')
@@ -368,7 +351,7 @@ class UniqueTests(unittest.TestCase):
 	# Tests that the program won't crash if it can't find enough websites to 
 	# completely meet the limit 
 	def test_not_enough_links(self): 
-		args =  'crawl.py https://crouton.net/ 10 --verbose'
+		args = 'crawl.py https://crouton.net/ 10 --verbose'
 		with unittest.mock.patch('sys.stdout', new = io.StringIO()) as fake_out:
 			main(args)
 			# The output should not indicate that more than one link was added
@@ -390,7 +373,7 @@ class UniqueTests(unittest.TestCase):
 	
 	# Tests that the final output does not contain repeated entries
 	def test_repeat(self): 
-		args = 'crawl.py https://en.wikipedia.org/wiki/Computer_science 250 ' 
+		args = 'crawl.py https://en.wikipedia.org/wiki/Computer_science 250' 
 		with unittest.mock.patch('sys.stdout', new = io.StringIO()) as fake_out: 
 			main(args)
 			# The output collection is stored as a line-separated list of 
