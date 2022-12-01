@@ -100,7 +100,8 @@ def process_website(queue, verbose, timeout, validate):
 			hyperlink is not None and \
 			len(hyperlink) > 0    and \
 			hyperlink[0] != '#'   and \
-			'<' not in hyperlink
+			'<' not in hyperlink  and \
+			'"' not in hyperlink 
 	
 	url = queue.poll()
 	if verbose: print('Reading: "', url, '" ... ', sep='', end='', flush=True) 
