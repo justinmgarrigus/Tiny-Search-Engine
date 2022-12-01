@@ -4,6 +4,7 @@ import enchant
 import sqlite3 
 import getopt 
 import json 
+import math 
 from bs4 import BeautifulSoup 
 from urllib.request import Request, urlopen
 from colorama import Fore, Style
@@ -25,7 +26,7 @@ def website_create_table(cur):
 	          'id INTEGER PRIMARY KEY, '            \
 			  'url TEXT UNIQUE, '                   \
 			  'm INTEGER, '                         \
-			  'data BLOB)'
+			  'data TEXT)'
 	cur.execute(command) 
 
 
@@ -179,9 +180,29 @@ def query_websites(query, stop_words, stemmer, verbose):
 			for website in websites: 
 				website_set.update(website.split(';')) 
 	
+	website_count = cur.execute('SELECT COUNT(*) FROM website').fetchone()[0]
+	websites = [] 
 	for website in website_set: 
 		name = cur.execute(f'SELECT url FROM website WHERE id = {website}').fetchone()[0] 
-		print(website, name) 
+		
+		command = f'SELECT m, data FROM website WHERE id = {website}'
+		m, freq_data = cur.execute(command).fetchone() 
+		
+		term_sum = 0
+		for item in freq_data.split(','): 
+			parts = item.split(':') 
+			if parts[0] in stems.keys(): 
+				command = f'SELECT doc FROM token WHERE stem = {stem_to_int(parts[0])}'
+				term_count = cur.execute(command).fetchone()[0].count(':') + 1 
+				tf_ij = int(parts[1]) / m 
+				idf_i = math.log2(website_count / term_count) + 1  
+				term_sum += tf_ij * idf_i 
+		
+		websites.append((name, term_sum))
+		
+	websites = sorted(websites, key=lambda x: x[1], reverse=True)
+	for website in websites[:10]:
+		print('[%.3f] %s' % (website[1], website[0]))
 	
 	
 def print_usage(): 
