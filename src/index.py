@@ -13,6 +13,10 @@ from nltk.stem import PorterStemmer
 nltk.download('stopwords', quiet=True) 
 from nltk.corpus import stopwords
 
+import hashlib
+def stem_to_int(stem): 
+	return int(hashlib.sha1(bytes(stem, 'utf-8')).hexdigest(), 16) % 1000000000
+
 
 def website_create_table(cur): 
 	command = 'CREATE TABLE IF NOT EXISTS website('
@@ -39,13 +43,14 @@ def website_insert(cur, url):
 
 def token_create_table(cur): 
 	command = 'CREATE TABLE IF NOT EXISTS token('
-	command +=  'stem TEXT PRIMARY KEY, '
+	command +=  'stem INTEGER PRIMARY KEY, '
 	command +=  'doc TEXT)' # TODO: see if BLOB is better
 	cur.execute(command) 
 	
 
 def token_insert(cur, stem, website_id): 
-	command = f'SELECT doc FROM token WHERE stem = "{stem}"'
+	stem = stem_to_int(stem) 
+	command = f'SELECT doc FROM token WHERE stem = {stem}'
 	doc = cur.execute(command).fetchone()
 	
 	if doc is None: 
@@ -53,7 +58,7 @@ def token_insert(cur, stem, website_id):
 		# addition 
 		# TODO: 'replace' should not be necessary here, so why is it?
 		command = 'INSERT OR REPLACE INTO token VALUES(' 
-		command += f'"{stem}", "{website_id}")'  
+		command += f'{stem}, "{website_id}")'  
 	else: 
 		# The stem has been added before, so append our website_id to the end 
 		text = doc[0] + ';' + str(website_id) 
@@ -81,7 +86,6 @@ def get_stem_set(text, stop_words, stemmer):
 # plain text or the hyperlink to a website with content). Returns either None 
 # if the file cannot be opened or the content of the document. 
 def scrape_text(reference, verbose): 
-	reference = reference.strip()
 	if verbose: 
 		print(f'Reading "{reference}" ... ', flush=True, end='') 
 	
@@ -114,6 +118,7 @@ def scrape_text(reference, verbose):
 # Takes the collection of words pointed to by <reference, str> and stores it 
 # into the database.
 def process_document(reference, stop_words, stemmer, verbose): 	
+	reference = reference.strip()
 	text_str = scrape_text(reference, verbose) 
 	if text_str is None:
 		return 
@@ -139,7 +144,7 @@ def process_document(reference, stop_words, stemmer, verbose):
 	
 	token_create_table(cur) 
 	for stem in stem_set:
-		token_insert(cur, stem, website_id); 
+		token_insert(cur, stem, website_id);
 	
 	con.commit()
 	if verbose: 
@@ -159,7 +164,8 @@ def query_websites(query, stop_words, stemmer, verbose):
 	
 	stem_set = get_stem_set(query, stop_words, stemmer)
 	for stem in stem_set: 
-		command = f'SELECT doc FROM token WHERE stem = "{stem}"' 
+		stem = stem_to_int(stem) 
+		command = f'SELECT doc FROM token WHERE stem = {stem}' 
 		websites = cur.execute(command).fetchone()
 		if websites is not None: 
 			for website in websites: 
