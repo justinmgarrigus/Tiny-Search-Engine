@@ -3,10 +3,12 @@ import re
 import enchant 
 import sqlite3 
 import getopt 
+import json 
 from bs4 import BeautifulSoup 
 from urllib.request import Request, urlopen
 from colorama import Fore, Style
 from gen import eprint
+from collections import defaultdict
 
 import nltk 
 from nltk.stem import PorterStemmer
@@ -19,24 +21,29 @@ def stem_to_int(stem):
 
 
 def website_create_table(cur): 
-	command = 'CREATE TABLE IF NOT EXISTS website('
-	command +=  'id INTEGER PRIMARY KEY, '
-	command +=  'url TEXT UNIQUE)'
+	command = 'CREATE TABLE IF NOT EXISTS website(' \
+	          'id INTEGER PRIMARY KEY, '            \
+			  'url TEXT UNIQUE, '                   \
+			  'm INTEGER, '                         \
+			  'data BLOB)'
 	cur.execute(command) 
 
 
 # Inserts the website into the database and returns the primary key it was 
 # assigned (or None if this website already existed in the table) 
-def website_insert(cur, url):
+def website_insert(cur, url, stems):
 	# If this url already exists in the table, exit. 
 	command = f'SELECT id FROM website WHERE url = "{url}"'
 	existing_id = cur.execute(command).fetchone()  
 	already_exists = cur.execute(command).fetchone() != None 
 	if already_exists:
 		return None 
-	
+		
 	size = cur.execute('SELECT COUNT(*) FROM website').fetchone()[0]
-	command = f'INSERT INTO website VALUES({str(size)}, "{url}")'
+	m = max(stems.values()) 
+	data = ','.join(key + ':' + str(value) for key, value in stems.items())
+	
+	command = f'INSERT INTO website VALUES({size}, "{url}", {m}, "{data}")'
 	cur.execute(command) 
 	return size 
 	
@@ -67,19 +74,20 @@ def token_insert(cur, stem, website_id):
 	cur.execute(command)
 
 
-# Return a set of unique strings (not including stopwords) that appear in the
-# text. These strings are made up of only lowercase alphabetic characters. 
-def get_stem_set(text, stop_words, stemmer): 
+# Return a dictionary of unique strings (not including stopwords) that appear in 
+# the text. These strings are made up of only lowercase alphabetic characters. 
+# The keys are stems, the values are frequencies (int) 
+def get_stem_dict(text, stop_words, stemmer): 
 	# Go through each collection of words (where a "word" is considered to be 
 	# alphabetic characters grouped together). 
-	stem_set = set() 
+	stems = defaultdict(lambda: 0) 
 	for m in re.finditer(r'[a-zA-Z]+', text):
 		word = m.group(0).lower()
-		stem = stemmer.stem(word) 
-		stem_set.add(stem)  
+		stem = stemmer.stem(word)  
+		if stem not in stop_words: 
+			stems[stem] += 1 
 	
-	# Remove stop words from the set
-	return stem_set.difference(stop_words) 
+	return stems 
 
 
 # Scrapes the text from the reference (either the name of a file containing 
@@ -124,10 +132,10 @@ def process_document(reference, stop_words, stemmer, verbose):
 		return 
 
 	# Words we will index 
-	stem_set = get_stem_set(text_str, stop_words, stemmer) 
+	stems = get_stem_dict(text_str, stop_words, stemmer) 
 	
 	if verbose: 
-		message = f'Inserting {len(stem_set)} stems into table.db ... '
+		message = f'Inserting {len(stems)} stems into table.db ... '
 		print(message, flush=True, end='')
 	
 	# Open the connection to the database 
@@ -136,14 +144,14 @@ def process_document(reference, stop_words, stemmer, verbose):
 	
 	# Optionally create table and insert this reference into it.
 	website_create_table(cur) 
-	website_id = website_insert(cur, reference) 
+	website_id = website_insert(cur, reference, stems) 
 	if website_id == None:
 		if verbose: 
 			print(Fore.YELLOW + 'Failed (duplicate entry)' + Style.RESET_ALL)
 		return # Nothing new to do, already indexed 
 	
 	token_create_table(cur) 
-	for stem in stem_set:
+	for stem in stems.keys():
 		token_insert(cur, stem, website_id);
 	
 	con.commit()
@@ -162,8 +170,8 @@ def query_websites(query, stop_words, stemmer, verbose):
 	
 	website_set = set() 
 	
-	stem_set = get_stem_set(query, stop_words, stemmer)
-	for stem in stem_set: 
+	stems = get_stem_dict(query, stop_words, stemmer)
+	for stem in stems.keys(): 
 		stem = stem_to_int(stem) 
 		command = f'SELECT doc FROM token WHERE stem = {stem}' 
 		websites = cur.execute(command).fetchone()
