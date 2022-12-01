@@ -77,27 +77,47 @@ def get_stem_set(text, stop_words, stemmer):
 	return stem_set.difference(stop_words) 
 
 
-# Takes the given hyperlink, scrapes the text from it, and stores it into the 
-# database. 
-def process_website(hyperlink, stop_words, stemmer, verbose): 
+# Scrapes the text from the reference (either the name of a file containing 
+# plain text or the hyperlink to a website with content). Returns either None 
+# if the file cannot be opened or the content of the document. 
+def scrape_text(reference, verbose): 
+	reference = reference.strip()
 	if verbose: 
-		print(f'Reading "{hyperlink}" ... ', flush=True, end='') 
+		print(f'Reading "{reference}" ... ', flush=True, end='') 
+	
+	try:
+		# Interpret the reference as a file name first 
+		doc_file = open(reference, 'r') 
+		text = doc_file.read()
+		doc_file.close()
+	except OSError: 
+		# Interpret it as a website 
+		try: 
+			req = Request(reference)
+			html_page = urlopen(req)
+			
+			soup = BeautifulSoup(html_page, 'html.parser') 
+			all_text = soup.findAll(text=True)
+			text = u" ".join(t.strip() for t in all_text)
+		except Exception as ex: 
+			text = None
+			if text is None: 
+				print(Fore.YELLOW + f'Failed ({type(ex)})' + Style.RESET_ALL)
+		
+	if verbose:  
+		if text is not None: 
+			print(Fore.CYAN + 'Obtained' + Style.RESET_ALL) 
+	
+	return text 
 
-	try: 
-		req = Request(hyperlink)
-		html_page = urlopen(req) 
-	except Exception as ex: 
-		if verbose:  
-			print(Fore.YELLOW + f'Failed({type(ex)})' + Style.RESET_ALL)
+
+# Takes the collection of words pointed to by <reference, str> and stores it 
+# into the database.
+def process_document(reference, stop_words, stemmer, verbose): 	
+	text_str = scrape_text(reference, verbose) 
+	if text_str is None:
 		return 
-	
-	soup = BeautifulSoup(html_page, 'html.parser') 
-	all_text = soup.findAll(text=True)
-	text_str = u" ".join(t.strip() for t in all_text)
-	
-	if verbose:
-		print(Fore.CYAN + 'Obtained' + Style.RESET_ALL) 
-	
+
 	# Words we will index 
 	stem_set = get_stem_set(text_str, stop_words, stemmer) 
 	
@@ -109,9 +129,9 @@ def process_website(hyperlink, stop_words, stemmer, verbose):
 	con = sqlite3.connect('table.db') 
 	cur = con.cursor()
 	
-	# Optionally create table and insert this hyperlink into it.
+	# Optionally create table and insert this reference into it.
 	website_create_table(cur) 
-	website_id = website_insert(cur, hyperlink) 
+	website_id = website_insert(cur, reference) 
 	if website_id == None:
 		if verbose: 
 			print(Fore.YELLOW + 'Failed (duplicate entry)' + Style.RESET_ALL)
@@ -157,7 +177,7 @@ def print_usage():
 def main(args): 
 	# Iterate through arguments 
 	try:
-		short = 'w:q:t:'
+		short = 'w:q:t:d:'
 		long = ['verbose'] 
 		iterator = getopt.gnu_getopt(args, short, long)[0] 
 	except getopt.GetoptError as ex: 
@@ -167,6 +187,7 @@ def main(args):
 	
 	website = None 
 	query = None 
+	document = None 
 	timeout = None 
 	verbose = None
 	for option, value in iterator: 
@@ -185,6 +206,14 @@ def main(args):
 				sys.exit(1)
 			
 			query = value 
+			
+		elif option == '-d':
+			if document is not None: 
+				eprint('Error: only one argument can specify a document\n') 
+				print_usage() 
+				sys.exit(1) 
+			
+			document = value 
 			
 		elif option == '-t':
 			if timeout is not None: 
@@ -222,16 +251,17 @@ def main(args):
 	if timeout is None: timeout = 5 
 	if verbose is None: verbose = False 
 	
-	if query is not None and website is not None: 
-		message = 'Error: the website (-w) and query (-q) flags cannot '
-		message += 'both be provided at the same time\n' 
+	none_elems = sum(x is not None for x in (website, query, document))
+	if none_elems > 1: 
+		message =  'Error: only one of the options among (-w, -q, -d) can be '
+		message += 'provided at a single time'
 		eprint(message) 
 		print_usage() 
 		sys.exit(1)
 	
-	if query is None and website is None: 
-		message = 'Error: either the website (-w) or the query (-q) flags must '
-		message += 'be present\n'
+	if none_elems == 0: 
+		message =  'Error: either the website (-w), query (-q), or ', 
+		message += 'document (-d) flags must be present\n'
 		eprint(message) 
 		print_usage() 
 		sys.exit(1) 
@@ -247,12 +277,16 @@ def main(args):
 		try: 
 			website_file = open(website, 'r') 
 			for website in website_file.readlines():
-				process_website(website.strip(), stop_words, stemmer, verbose) 
+				process_document(website, stop_words, stemmer, verbose)
+			website_file.close() 
 		except OSError: 
 			# If the open statement failed, then interpret it as a plain website
 			# instead. 
-			process_website(website, stop_words, stemmer, True)
-
+			process_document(website, stop_words, stemmer, verbose)
+			
+	elif document is not None: 
+		process_document(document, stop_words, stemmer, verbose)
+		
 
 if __name__ == '__main__': 
 	main(sys.argv) 
