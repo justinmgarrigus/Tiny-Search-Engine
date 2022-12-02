@@ -114,7 +114,7 @@ def get_stem_dict(text, stop_words, stemmer):
 # Scrapes the text from the reference (either the name of a file containing 
 # plain text or the hyperlink to a website with content). Returns either None 
 # if the file cannot be opened or the content of the document. 
-def scrape_text(reference, verbose): 
+def scrape_text(reference, timeout, verbose): 
 	if verbose: 
 		print(f'Reading "{reference}" ... ', flush=True, end='') 
 	
@@ -127,15 +127,15 @@ def scrape_text(reference, verbose):
 		# Interpret it as a website 
 		try: 
 			req = Request(reference)
-			html_page = urlopen(req)
+			html_page = urlopen(req, timeout=timeout)
 			
 			soup = BeautifulSoup(html_page, 'html.parser') 
 			all_text = soup.findAll(text=True)
 			text = u" ".join(t.strip() for t in all_text)
 		except Exception as ex: 
 			text = None
-			if text is None: 
-				print(Fore.YELLOW + f'Failed ({type(ex)})' + Style.RESET_ALL)
+			message = f'{type(ex)}, {ex.reason}' 
+			print(Fore.YELLOW + f'Failed ({message})' + Style.RESET_ALL) 
 		
 	if verbose:  
 		if text is not None: 
@@ -146,9 +146,9 @@ def scrape_text(reference, verbose):
 
 # Takes the collection of words pointed to by <reference, str> and stores it 
 # into the database.
-def process_document(reference, stop_words, stemmer, verbose): 	
+def process_document(reference, stop_words, stemmer, timeout, verbose): 	
 	reference = reference.strip()
-	text_str = scrape_text(reference, verbose) 
+	text_str = scrape_text(reference, timeout, verbose) 
 	if text_str is None:
 		return 
 
@@ -328,15 +328,15 @@ def main(args):
 		try: 
 			website_file = open(website, 'r') 
 			for website in website_file.readlines():
-				process_document(website, stop_words, stemmer, verbose)
+				process_document(website, stop_words, stemmer, timeout, verbose)
 			website_file.close() 
 		except OSError: 
 			# If the open statement failed, then interpret it as a plain website
 			# instead. 
-			process_document(website, stop_words, stemmer, verbose)
+			process_document(website, stop_words, stemmer, timeout, verbose)
 			
 	elif document is not None: 
-		process_document(document, stop_words, stemmer, verbose)
+		process_document(document, stop_words, stemmer, timeout, verbose)
 		
 
 if __name__ == '__main__': 
