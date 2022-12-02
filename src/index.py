@@ -21,6 +21,26 @@ def stem_to_int(stem):
 	return int(hashlib.sha1(bytes(stem, 'utf-8')).hexdigest(), 16) % 1000000000
 
 
+usage = '''\
+Usage: 
+    python3 index.py {-w <website> | -q <query> | -d <document>} [-t <timeout] 
+	    [-b <database>] [--verbose]
+
+Options: 
+	<website>: (string) Name of a website or file containing a line-separated
+	    list of names of websites. Indexes content of site(s) into the database.
+	<query>: (string) Query written in plain English. Yields a string
+		representing a semicolon-separated list of website indices, relative to
+		the database. 
+	<document>: (string) For debugging purposes, a document to be indexed
+		directly instead of a website pointing to a document. 
+	<timeout>: (positive float) How long to wait for a response from a server 
+		before exiting. Default is 5 seconds. 
+	<database>: (string) File to read/write database information. 
+	verbose: Prints extra debug information to stdout.
+'''
+
+
 def website_create_table(cur): 
 	command = 'CREATE TABLE IF NOT EXISTS website(' \
 	          'id INTEGER PRIMARY KEY, '            \
@@ -205,10 +225,6 @@ def query_websites(query, stop_words, stemmer, verbose):
 		print('[%.3f] %s' % (website[1], website[0]))
 	
 	
-def print_usage(): 
-	pass 
-
-
 def main(args): 
 	# Iterate through arguments 
 	try:
@@ -217,7 +233,7 @@ def main(args):
 		iterator = getopt.gnu_getopt(args, short, long)[0] 
 	except getopt.GetoptError as ex: 
 		eprint(f'Error: unrecognized argument specified "{ex.opt}"\n') 
-		print_usage() 
+		eprint(usage, do_color=False) 
 		sys.exit(1) 
 	
 	website = None 
@@ -229,7 +245,7 @@ def main(args):
 		if option == '-w': 
 			if website is not None: 
 				eprint('Error: only one argument can specify a website\n')
-				print_usage() 
+				eprint(usage, do_color=False) 
 				sys.exit(1) 
 			
 			website = value 
@@ -237,7 +253,7 @@ def main(args):
 		elif option == '-q': 
 			if query is not None: 
 				eprint('Error: only one argument can specify a query\n')
-				print_usage() 
+				eprint(usage, do_color=False) 
 				sys.exit(1)
 			
 			query = value 
@@ -245,7 +261,7 @@ def main(args):
 		elif option == '-d':
 			if document is not None: 
 				eprint('Error: only one argument can specify a document\n') 
-				print_usage() 
+				eprint(usage, do_color=False) 
 				sys.exit(1) 
 			
 			document = value 
@@ -255,7 +271,7 @@ def main(args):
 				message =  'Error: only one argument can specify a timeout '
 				message += 'amount\n' 
 				eprint(message) 
-				print_usage() 
+				eprint(usage, do_color=False) 
 				sys.exit(1) 
 			
 			try: 
@@ -264,14 +280,14 @@ def main(args):
 				message = 'Error: timeout amount must be numeric and '
 				message += 'positive, "' + str(value) + '" found\n'
 				eprint(message) 
-				print_usage() 
+				eprint(usage, do_color=False) 
 				sys.exit(1) 
 				
 			if timeout <= 0: 
 				message = 'Error: timeout amount must be positive, "'
 				message += str(value) + '" found\n'
 				eprint(message) 
-				print_usage() 
+				eprint(usage, do_color=False) 
 				sys.exit(1) 
 			
 		elif option == '--verbose': 
@@ -279,7 +295,7 @@ def main(args):
 		
 		else:
 			eprint(f'Error: unrecognized argument specified "{ex.opt}"\n') 
-			print_usage() 
+			eprint(usage, do_color=False) 
 			sys.exit(1) 
 	
 	# Default values 
@@ -291,14 +307,14 @@ def main(args):
 		message =  'Error: only one of the options among (-w, -q, -d) can be '
 		message += 'provided at a single time'
 		eprint(message) 
-		print_usage() 
+		eprint(usage, do_color=False) 
 		sys.exit(1)
 	
 	if none_elems == 0: 
 		message =  'Error: either the website (-w), query (-q), or ', 
 		message += 'document (-d) flags must be present\n'
 		eprint(message) 
-		print_usage() 
+		eprint(usage, do_color=False)  
 		sys.exit(1) 
 		
 	stop_words = set(stopwords.words('english'))
