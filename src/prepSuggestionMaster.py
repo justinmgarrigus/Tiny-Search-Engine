@@ -10,8 +10,8 @@ def appendPrepSuggestionMaster(): #this should be used in most cases for initial
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537.36 Edge/18.19582"
   }
 
-  suggestionSeeds = open("/content/suggestionSeeds.txt").read().splitlines()   #opening and reading the suggestion seeds
-  cachedPlace = open("/content/lastSeed.txt").read().splitlines()
+  suggestionSeeds = open("/data/suggestionSeeds.txt").read().splitlines()   #opening and reading the suggestion seeds
+  cachedPlace = open("/data/lastSeed.txt").read().splitlines()
   print(cachedPlace[0])
   appendSuggestions = []
   i = len(suggestionSeeds) - 1
@@ -19,16 +19,16 @@ def appendPrepSuggestionMaster(): #this should be used in most cases for initial
   cacheLine = str(i)
   tempItem = suggestionSeeds[i]
   if k != i:
-      f = open('/content/lastSeed.txt', 'w')
+      f = open('/data/lastSeed.txt', 'w')
       f.write(tempItem + "\n")
-      a = open('/content/lastSeed.txt', 'a')
+      a = open('/data/lastSeed.txt', 'a')
       a.writelines(cacheLine)
       while i >= k:
         tempItem = suggestionSeeds[i]
         appendSuggestions.append(tempItem)
         i = i - 1
 
-  fout = open('/content/suggestionMaster.csv', 'a', newline="")                            #openning the master suggestion csv
+  fout = open('/data/suggestionMaster.csv', 'a', newline="")                            #openning the master suggestion csv
   suggestionCSVWriter = csv.writer(fout)    #prepping the csv writer
   print(appendSuggestions)
   print("\n")
@@ -45,8 +45,8 @@ def resetPrepSuggestionMaster():
       "User-Agent":
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537.36 Edge/18.19582"
   }
-  suggestionSeeds = open("/content/suggestionSeeds.txt").read().splitlines()   #opening and reading the suggestion seeds
-  fout = open('/content/suggestionMaster.csv', 'w')                            #openning the master suggestion csv
+  suggestionSeeds = open("/data/suggestionSeeds.txt").read().splitlines()   #opening and reading the suggestion seeds
+  fout = open('/data/suggestionMaster.csv', 'w')                            #openning the master suggestion csv
   suggestionCSVWriter = csv.writer(fout)    #prepping the csv writer
 
   #iterating through each suggestion seed
@@ -57,7 +57,7 @@ def resetPrepSuggestionMaster():
 def searchSuggestionDriver(partialSearch): #pass the string without the suffix '?'
   normalizedSearch = partialSearch.lower() #changing all seeds to lowercase
   suggestions = ss.search(normalizedSearch) #searching for suggestions to the given search
-  seedout = open('/content/suggestionSeeds.txt', 'a') #adding the last seach to the seed list to grow functionality
+  seedout = open('/data/suggestionSeeds.txt', 'a') #adding the last seach to the seed list to grow functionality
   seedout.write("\n" + normalizedSearch) 
   if len(suggestions) == 0: #if no suggestions are given, make some in real time
     headers = { 
