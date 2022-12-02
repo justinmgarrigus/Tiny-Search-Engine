@@ -3,10 +3,10 @@ computer science
 computer
 supercomputer
 programming
-C++ programming
+c++ programming
 python programming
-C program
-C programming
+c program
+c programming
 best programming languages
 computer architecture
 tensorflow
@@ -23,8 +23,8 @@ computer science tutorials
 history of computer science
 artificial intelligence
 automation
-cray II
-Alan Turing
+cray ii
+alan turing
 cryptography
 cryptocurrency
 cybersecurity
@@ -34,9 +34,9 @@ network administration
 information technology
 ada lovelace
 mechanical computer
-IBM
-Intel
-Apple
+ibm
+intel
+apple
 silicon
 transistor
 metal oxide transitor
@@ -51,7 +51,7 @@ math concepts
 history of physics
 particle physics
 physics of rigid materials
-Von-Neumann Architecture
+von-neumann architecture
 boolean
 boolean logic
 binary
@@ -84,7 +84,7 @@ alu
 bioinformatics
 biomechanics
 natural lanuage processing
-Levenshtein
+levenshtein
 lemma
 lemmatization
 incompeteness theorem
@@ -97,17 +97,17 @@ matrix multiplication
 data science
 big data
 search patterns in big data
-FPGA
+fpga
 how gpus 
-IEE
+iee
 computer engineering articles
 aerospace engineering articles
 alogorithm
 data science algorithms
 computer mathematics applications
 game theory
-John Conway
-Conway's game of life
+john conway
+conway's game of life
 neural networks
 text prediction
 markov chain
@@ -117,7 +117,7 @@ image processing
 hdmi
 best videogames
 indie videogames
-AAA games
+aaa games
 horror games
 action games
 game graphics
@@ -135,9 +135,9 @@ simulation programming
 news
 world news
 us news
-Joe Biden
-Donald Trump
-Queen Elizabeth
+joe biden
+donald trump
+queen elizabeth
 news history
 sports news now
 travel news now
@@ -169,12 +169,12 @@ extreme weather in
 weather forecast for the next
 weather news
 text to speech
-NFL schedule for
+nfl schedule for
 olympics news
-NHL schedule for
+nhl schedule for
 college football
 golf statistics for
-PGA news
+pga news
 tech news
 new things in technology
 new things in tech are
@@ -193,13 +193,21 @@ good news for climate change
 pet news
 new pet tech for
 best places to travel in
-best TV shows on
-Netflix top shows
-Amazon prime video suggestions for
-Amazon items for
+best tv shows on
+netflix top shows
+amazon prime video suggestions for
+amazon items for
 best amazon products in 2022 for
 news photo contest winners
 wildlife news 
 video game tutorial
 video game news
-Kotaku articles for
+kotaku articles for
+help with computer science
+easy compsci tutorials
+help me with homework
+implementation in python of
+github link to pytorch
+history of africa
+history of computer science
+best ways program
