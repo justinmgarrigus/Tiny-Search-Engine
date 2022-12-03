@@ -1,3 +1,0 @@
-data/document-1.txt 
-data/document-2.txt 
-https://en.wikipedia.org/wiki/Natural_language_processing

@@ -11,7 +11,7 @@ from colorama import Fore, Style
 import unittest 
 import unittest.mock 
 from parameterized import parameterized 
-from gen import eprint 
+from .gen import eprint 
 
 
 class CircularQueue: 
