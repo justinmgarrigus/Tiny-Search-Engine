@@ -1,6 +1,5 @@
 import sys 
-import re 
-import enchant 
+import re
 import sqlite3 
 import getopt 
 import json 
@@ -199,6 +198,9 @@ def process_document(cur, database_name, reference, stop_words, stemmer, \
 	token_create_table(cur) 
 	for stem in stems.keys():
 		token_insert(cur, stem, website_id);
+		
+	if verbose: 
+		print(Fore.CYAN + 'Done' + Style.RESET_ALL)
 
 
 def check_valid_websites(cur): 
@@ -206,7 +208,7 @@ def check_valid_websites(cur):
 	command = 'SELECT name FROM sqlite_master WHERE type = "table"'
 	tables = [x[0] for x in cur.execute(command).fetchall()] 
 	if 'token' not in tables or 'website' not in tables: 
-		eprint('Error: no index found. Index at least one valid website.')
+		eprint('Error: no index found. Index at least one valid website.') 
 		sys.exit(1) 
 	elif cur.execute('SELECT COUNT(*) FROM website').fetchone()[0] == 0:
 		eprint('Error: no websites indexed. Index at least one valid website.')
@@ -374,6 +376,11 @@ def main(args):
 	stop_words = set(stopwords.words('english'))
 	stemmer = PorterStemmer() 
 	
+	if query is not None and not os.path.isfile(database): 
+		# User wants to query from a database that doesn't exist. 
+		eprint('Error: no index found. Index at least one valid website.')
+		sys.exit(1) 
+	
 	# Open connection to the database
 	con = sqlite3.connect(database)
 	cur = con.cursor()
@@ -430,6 +437,8 @@ cla_tests = {                                                                  \
 	'index.py -z test',                                                        \
 'missing_document':                                                            \
 	'index.py -d "data/this-file-should-not-exist.txt"',                       \
+'missing_database':                                                            \
+	'index.py -q test -b data/this-database-should-not-exist.txt',             \
 'timeout_not_numeric':                                                         \
 	'index.py -w "http://example.com/" -t test',                               \
 'timeout_negative':                                                            \
@@ -526,8 +535,21 @@ class UniqueTests(unittest.TestCase):
 		except ValueError: 
 			self.fail('Website/token regex did not match')
 			
-		self.assertTrue(end_website_size > start_website_size) 
-		self.assertTrue(end_token_size > start_token_size)
+		self.assertGreater(end_website_size, start_website_size) 
+		self.assertGreater(end_token_size, start_token_size)
+
+
+	# Test that a website-collection that contains both unique websites and 
+	# unique documents are each indexed. 
+	def test_index_document_multi(self): 
+		args = 'index.py -w "data/links/multi-document.txt" -b null' 
+		website_regex = r'Table\(website\) size: ([0-9]+)'
+		
+		with unittest.mock.patch('sys.stdout', new = io.StringIO()) as fake_out: 
+			main(args)
+			out = fake_out.getvalue() 
+			website_size = re.search(website_regex, out).group(1) 
+			self.assertEquals(website_size, '3') # 3 docs in collection 
 
 
 	# Test that the size of the database changes after each indexing of a 
@@ -561,8 +583,8 @@ class UniqueTests(unittest.TestCase):
 		except ValueError: 
 			self.fail('Website/token regex did not match')
 			
-		self.assertTrue(end_website_size > start_website_size) 
-		self.assertTrue(end_token_size > start_token_size)
+		self.assertGreater(end_website_size, start_website_size) 
+		self.assertGreater(end_token_size, start_token_size)
 	
 	
 	# Tests that a query returns the expected documents
@@ -608,7 +630,7 @@ class UniqueTests(unittest.TestCase):
 			out = fake_out.getvalue().strip()
 			indices = out.split(';') 
 			self.assertTrue(doc_1_index in indices and doc_2_index in indices)
-			
+	
 	
 	# Tests that documents are ranked in the correct order given single-word 
 	# queries
